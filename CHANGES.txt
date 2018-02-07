@@ -1,29 +1,31 @@
+Git 2018-02-07
+* Port to BNROM
+
 Git 2016-11-16
 * SNROM and UOROM versions now on GitHub
 * Update pilbmp2nes.py and installation instructions to Python 3
 * Remove build instructions that duplicate those of nrom-template
 
 0.05 (2015-02-13): The "Ho-ly-$#!+" Code Review
-* renamed .h files to .inc so as not to confuse with C headers
-* broke parts of main.s into init.s, bg.s, and player.s
-* added overall map of source code to README.md
-* moved init code into init.s
+* rename .h files to .inc so as not to confuse with C headers
+* split parts of main.s into init.s, bg.s, and player.s
+* add overall map of source code to README.md
 * indented forward branches in player.s
 
 0.04 (2014-11-09)
-* expanded build instructions (requested by whicker)
-* switched to 7-frame walk
+* expand build instructions (requested by whicker)
+* switch to 7-frame walk
 
 0.03 (2014-05-17)
-* corrected character's head position
-* corrected negative byte values for ca65 2.14
+* correct character's head position
+* correct negative byte values for ca65 2.14
 * moved -o to front of linker command line for ld65 2.14
 
 0.02 (2011-07-23)
-* added comment about the holy war over clearing or not clearing RAM
-* added notice about line breaks in Windows Notepad
+* add comment about the holy war over clearing or not clearing RAM
+* add notice about line breaks in Windows Notepad
   (requested by 3GenGames)
-* added SNROM version with CHR RAM and inter-bank calls
+* SNROM port with CHR RAM and inter-bank calls
 
 0.01 (2011-07-20)
 * initial release

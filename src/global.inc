@@ -12,9 +12,6 @@
 ; bg.s
 .global draw_bg
 
-; player.s
-.global init_player, move_player
-
 ; pads.s
 .global read_pads
 
@@ -22,6 +19,6 @@
 .global ppu_clear_nt, ppu_clear_oam, ppu_screen_on
 
 ; bankcall ids
-.globalzp draw_player_sprite, load_chr_ram
+.globalzp init_player, move_player, draw_player_sprite, load_chr_ram
 
 .endif

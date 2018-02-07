@@ -1,5 +1,5 @@
 .include "nes.inc"
-.include "mmc1.inc"
+.include "bnrom.inc"
 .include "global.inc"
 
 .segment "CODE"
@@ -62,12 +62,6 @@ clear_zp:
   ; Set up PRG RAM
   ; Copy initial high scores, bankswitching trampolines, etc. to RAM
   ; Set up your sound engine
-  
-  lda #%01110
-  ;        ^^ Vertical mirroring (horizontal arrangement of nametables)
-  ;      ^^   Fixed $C000
-  ;     ^     8 KiB bank switching
-  jsr setMMC1BankMode
 
 vwait2:
   bit PPUSTATUS  ; After the second vblank, we know the PPU has
@@ -81,8 +75,6 @@ vwait2:
   ; PPUSTATUS at the exact moment that the bit turns on, it'll flip
   ; from off to on to off faster than the CPU can see.
 
-  lda #4
-  jsr setPRGBank
   jmp main
 .endproc
 

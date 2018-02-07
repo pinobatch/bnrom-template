@@ -1,6 +1,6 @@
 ;
 ; Simple sprite demo for NES
-; Copyright 2011 Damian Yerrick
+; Copyright 2011-2018 Damian Yerrick
 ;
 ; Copying and distribution of this file, with or without
 ; modification, are permitted in any medium without royalty provided
@@ -9,7 +9,7 @@
 ;
 
 .include "nes.inc"
-.include "mmc1.inc"
+.include "bnrom.inc"
 .include "global.inc"
 
 OAM = $0200
@@ -20,33 +20,20 @@ oam_used:      .res 1  ; starts at 0
 cur_keys:      .res 2
 new_keys:      .res 2
 
-.segment "CODE"
+.segment "BANK00"
 ;;
 ; This NMI handler is good enough for a simple "has NMI occurred?"
 ; vblank-detect loop.  But sometimes there are things that you always
 ; want to happen every frame, even if the game logic takes far longer
 ; than usual.  These might include music or a scroll split.  In these
 ; cases, you'll need to put more logic into the NMI handler.
+; The BNROM driver takes care of saving and restoring A, X, and Y for you.
 .proc nmi_handler
   inc nmis
-  rti
+  jmp nmi_handler_epilog
 .endproc
 
-; A null IRQ handler that just does RTI is useful to add breakpoints
-; that survive a recompile.  Set your debugging emulator to trap on
-; reads of $FFFE, and then you can BRK $00 whenever you need to add
-; a breakpoint.
-;
-; But sometimes you'll want a non-null IRQ handler.
-; On NROM, the IRQ handler is mostly used for the DMC IRQ, which was
-; designed for gapless playback of sampled sounds but can also be
-; (ab)used as a crude timer for a scroll split (e.g. status bar).
-.proc irq_handler
-  rti
-.endproc
-
-.segment "BANK04"
-
+.code
 .proc main
 
   ; Now the PPU has stabilized, and we're still in vblank.  Copy the
@@ -63,13 +50,16 @@ new_keys:      .res 2
   jsr draw_bg
   
   ; Set up game variables, as if it were the start of a new level.
-  jsr init_player
+  ldx #init_player
+  jsr bankcall
 
 forever:
 
   ; Game logic
   jsr read_pads
-  jsr move_player
+
+  ldx #move_player
+  jsr bankcall
 
   ; The first entry in OAM (indices 0-3) is "sprite 0".  In games
   ; with a scrolling playfield and a still status bar, it's used to
@@ -82,7 +72,6 @@ forever:
   jsr bankcall
   ldx oam_used
   jsr ppu_clear_oam
-
 
   ; Good; we have the full screen ready.  Wait for a vertical blank
   ; and set the scroll registers to display it.
@@ -122,7 +111,8 @@ copypalloop:
   bcc copypalloop
   rts
 .endproc
-.segment "RODATA"
+
+.rodata
 initial_palette:
   .byt $22,$18,$28,$38,$0F,$06,$16,$26,$0F,$08,$19,$2A,$0F,$02,$12,$22
   .byt $22,$08,$16,$37,$0F,$06,$16,$26,$0F,$0A,$1A,$2A,$0F,$02,$12,$22

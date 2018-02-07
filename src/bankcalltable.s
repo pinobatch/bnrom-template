@@ -1,20 +1,21 @@
 .export bankcall_table
 
-.macro bankcall_entry callid, banknumber, entrypoint
+.macro bankcall_entry callid, entrypoint
   .exportzp callid
   .import entrypoint
   callid = <(*-bankcall_table)
-  .out .string(callid)
+  .assert callid < 256, error, "too many interbank calls"
   .addr entrypoint-1
-  .byt banknumber
+  .byt <.bank(entrypoint)
 .endmacro
 
 .segment "RODATA"
-; Each of these macros takes three arguments:
-; the external name of the method (loaded into X before bankcall),
-; which bank the method is in,
+; The macro takes two arguments:
+; the external name of the method (loaded into X before bankcall)
 ; and the entry point within the bank.
 bankcall_table:
-  bankcall_entry draw_player_sprite,    2, draw_player_sprite_far
-  bankcall_entry load_chr_ram,         13, load_chr_ram_far
+  bankcall_entry load_chr_ram,       load_chr_ram_far
+  bankcall_entry init_player,        init_player_far
+  bankcall_entry move_player,        move_player_far
+  bankcall_entry draw_player_sprite, draw_player_sprite_far
 

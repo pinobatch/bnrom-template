@@ -10,17 +10,15 @@
 #
 
 # These are used in the title of the NES program and the zip file.
-title = snrom-template
-titlealt = uorom-template
+title = bnrom-template
 version = 0.05
 
 # Space-separated list of assembly language files that make up the
 # PRG ROM.  If it gets too long for one line, you can add a backslash
 # (the \ character) at the end of the line and continue on the next.
-objlist = main init bg player \
-pads ppuclear mmc1 chrram bankcalltable
-objlistalt = main init bg player \
-pads ppuclear unrom chrram bankcalltable
+objlist = bnrom init bankcalltable \
+  main bg player \
+  pads ppuclear chrram
 
 AS65 = ca65
 LD65 = ld65
@@ -31,6 +29,7 @@ imgdir = tilesets
 
 #EMU := "/C/Program Files/Nintendulator/Nintendulator.exe"
 EMU := fceux
+DEBUGEMU := ~/.wine/drive_c/Program\ Files\ \(x86\)/FCEUX/fceux.exe
 # other options for EMU are start (Windows) or gnome-open (GNOME)
 
 # Occasionally, you need to make "build tools", or programs that run
@@ -57,8 +56,8 @@ endif
 run: $(title).nes
 	$(EMU) $<
 
-runalt: $(titlealt).nes
-	$(EMU) $<
+debug: $(title).nes
+	$(DEBUGEMU) $<
 
 # Rule to create or update the distribution zipfile by adding all
 # files listed in zip.in.  Actually the zipfile depends on every
@@ -80,21 +79,19 @@ zip.in:
 $(objdir)/index.txt: makefile
 	echo Files produced by build tools go here, but caulk goes where? > $@
 
+all: $(title).nes
+
 clean:
 	-rm $(objdir)/*.o $(objdir)/*.s $(objdir)/*.chr
 
 # Rules for PRG ROM
 
 objlisto = $(foreach o,$(objlist),$(objdir)/$(o).o)
-objlistalto = $(foreach o,$(objlistalt),$(objdir)/$(o).o)
 
-map.txt $(title).nes: snrom2mbit.cfg $(objlisto)
+map.txt $(title).nes: bnrom1mbit.cfg $(objlisto)
 	$(LD65) -o $(title).nes -m map.txt -C $^
 
-mapalt.txt $(titlealt).nes: uorom2mbit.cfg $(objlistalto)
-	$(LD65) -o $(titlealt).nes -m mapalt.txt -C $^
-
-$(objdir)/%.o: $(srcdir)/%.s $(srcdir)/nes.inc $(srcdir)/global.inc $(srcdir)/mmc1.inc
+$(objdir)/%.o: $(srcdir)/%.s $(srcdir)/nes.inc $(srcdir)/global.inc $(srcdir)/bnrom.inc
 	$(AS65) $(CFLAGS65) $< -o $@
 
 $(objdir)/%.o: $(objdir)/%.s

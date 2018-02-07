@@ -8,10 +8,10 @@
 ; code copies.  This file is offered as-is, without any warranty.
 ;
 .include "nes.inc"
-.include "mmc1.inc"
+.include "bnrom.inc"
 .export load_chr_ram_far
 
-.segment "BANK13"
+.segment "BANK01"
 template_chr:
   .incbin "obj/nes/bggfx.chr"
   .incbin "obj/nes/spritegfx.chr"

@@ -1,5 +1,5 @@
 .include "nes.inc"
-.include "mmc1.inc"
+.include "bnrom.inc"
 .include "global.inc"
 
 .segment "ZEROPAGE"
@@ -24,9 +24,11 @@ WALK_BRAKE = 8  ; stopping acceleration in 1/256 px/frame^2
 LEFT_WALL = 32
 RIGHT_WALL = 224
 
-.segment "CODE"
+; We put player logic in bank 2 to test the bankcall mechanism
+.segment "BANK02"
+.export init_player_far, move_player_far, draw_player_sprite_far
 
-.proc init_player
+.proc init_player_far
   lda #0
   sta player_xlo
   sta player_dxlo
@@ -36,12 +38,12 @@ RIGHT_WALL = 224
   sta player_xhi
   lda #192
   sta player_yhi
-  rts
+  jmp bankrts
 .endproc
 
 ;;
 ; Moves the player character in response to controller 1.
-.proc move_player
+.proc move_player_far
 
   ; Acceleration to right: Do it only if the player is holding right
   ; on the Control Pad and has a nonnegative velocity.
@@ -187,13 +189,10 @@ doneWallCollision:
   have_player_frame:
 
   sta player_frame
-  rts
+  jmp bankrts
 .endproc
 
 
-; We put this in bank 2 to test the bankcall mechanism
-.segment "BANK02"
-.export draw_player_sprite_far
 ;;
 ; Draws the player's character to the display list as six sprites.
 ; In the template, we don't need to handle half-offscreen actors,

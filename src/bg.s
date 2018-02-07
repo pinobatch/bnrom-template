@@ -1,6 +1,7 @@
 .include "nes.inc"
 .include "global.inc"
-.segment "CODE"
+
+.code
 .proc draw_bg
   ; Start by clearing the first nametable
   ldx #$20
@@ -80,4 +81,3 @@ not4:
 
   rts
 .endproc
-

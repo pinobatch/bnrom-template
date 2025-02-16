@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 #
-# Bitmap to multi-console CHR converter using Pillow
-# (with PB8 instead of PackBits)
+# Bitmap to multi-console CHR converter using Pillow, the
+# Python Imaging Library
 #
-# Copyright 2014-2015 Damian Yerrick
+# Copyright 2014-2025 Damian Yerrick
 # Copying and distribution of this file, with or without
 # modification, are permitted in any medium without royalty
 # provided the copyright notice and this notice are preserved.
@@ -12,26 +12,6 @@
 from __future__ import with_statement, print_function, unicode_literals
 from PIL import Image
 from time import sleep
-import array
-
-# python 2/3 cross compatibility fixes
-try:
-    xrange
-except NameError:
-    xrange = range
-try:
-    raw_input
-except NameError:
-    raw_input = input
-try:
-    next
-except NameError:
-    next = lambda x: x.next()
-def blank_byte_array():
-    try:
-        return array.array('B')
-    except TypeError:
-        return array.array(b'B')
 
 def formatTilePlanar(tile, planemap, hflip=False, little=False):
     """Turn a tile into bitplanes.
@@ -47,11 +27,11 @@ Planemap opcodes:
     if (tile.size != (8, 8)):
         return None
     pixels = list(tile.getdata())
-    pixelrows = [pixels[i:i + 8] for i in xrange(0, 64, 8)]
+    pixelrows = [pixels[i:i + 8] for i in range(0, 64, 8)]
     if hflip:
         for row in pixelrows:
             row.reverse()
-    out = blank_byte_array()
+    out = bytearray()
 
     planemap = [[[int(c) for c in row]
                  for row in plane.split(',')]
@@ -68,16 +48,15 @@ Planemap opcodes:
         for pxrow in pixelrows:
             for rowplane in plane:
                 rowbits = 1
-                thisrow = blank_byte_array()
+                thisrow = bytearray()
                 for px in pxrow:
                     for bitnum in rowplane:
                         rowbits = (rowbits << 1) | ((px >> bitnum) & 1)
                         if rowbits >= 0x100:
                             thisrow.append(rowbits & 0xFF)
                             rowbits = 1
-                if little: thisrow.reverse()
-                out.extend(thisrow)
-    return out.tostring()
+                out.extend(thisrow[::-1] if little else thisrow)
+    return bytes(out)
 
 def pilbmp2chr(im, tileWidth=8, tileHeight=8,
                formatTile=lambda im: formatTilePlanar(im, "0;1")):
@@ -98,6 +77,8 @@ def pilbmp2chr(im, tileWidth=8, tileHeight=8,
     return outdata
 
 def parse_argv(argv):
+    # optparse is still used because of how it supports mixing
+    # named arguments (-i and -o) with positional arguments
     from optparse import OptionParser
     parser = OptionParser(usage="usage: %prog [options] [-i] INFILE [-o] OUTFILE")
     parser.add_option("-i", "--image", dest="infilename",
@@ -107,8 +88,11 @@ def parse_argv(argv):
     parser.add_option("-W", "--tile-width", dest="tileWidth",
                       help="set width of metatiles", metavar="HEIGHT",
                       type="int", default=8)
+    parser.add_option("--packbits", dest="packbits",
+                      help="use Apple PackBits RLE compression if available",
+                      action="store_true", default=False)
     parser.add_option("--pb8", dest="use_pb8",
-                      help="use PB8 compression",
+                      help="use PB8 RLE compression if available",
                       action="store_true", default=False)
     parser.add_option("-H", "--tile-height", dest="tileHeight",
                       help="set height of metatiles", metavar="HEIGHT",
@@ -116,7 +100,7 @@ def parse_argv(argv):
     parser.add_option("-1", dest="planes",
                       help="set 1bpp mode (default: 2bpp NES)",
                       action="store_const", const="0", default="0;1")
-    parser.add_option("--planes", dest="planes",
+    parser.add_option("-p", "--planes", dest="planes",
                       help="set the plane map (1bpp: 0) (NES: 0;1) (GB: 0,1) (SMS:0,1,2,3) (TG16/SNES: 0,1;2,3) (MD: 3210)")
     parser.add_option("--hflip", dest="hflip",
                       help="horizontally flip all tiles (most significant pixel on right)",
@@ -124,6 +108,12 @@ def parse_argv(argv):
     parser.add_option("--little", dest="little",
                       help="reverse the bytes within each row-plane (needed for GBA and a few others)",
                       action="store_true", default=False)
+    parser.add_option("--add", dest="addamt",
+                      help="value to add to each pixel",
+                      type="int", default=0)
+    parser.add_option("--add0", dest="addamt0",
+                      help="value to add to pixels of color 0 (if different)",
+                      type="int", default=None)
     (options, args) = parser.parse_args(argv[1:])
 
     tileWidth = int(options.tileWidth)
@@ -154,8 +144,12 @@ def parse_argv(argv):
         if sys.stdout.isatty():
             raise ValueError("cannot write CHR to terminal")
 
+    addamt, addamt0 = options.addamt, options.addamt0
+    if addamt0 is None: addamt0 = addamt
+
     return (infilename, outfilename, tileWidth, tileHeight,
-            options.use_pb8, options.planes, options.hflip, options.little)
+            options.planes, options.hflip, options.little,
+            options.packbits, options.use_pb8, addamt, addamt0)
 
 argvTestingMode = True
 
@@ -175,24 +169,44 @@ def main(argv=None):
         argv = sys.argv
         if (argvTestingMode and len(argv) < 2
             and sys.stdin.isatty() and sys.stdout.isatty()):
-            argv.extend(raw_input('args:').split())
+            argv.extend(input('args:').split())
     try:
         (infilename, outfilename, tileWidth, tileHeight,
-         use_pb8, planes, hflip, little) = parse_argv(argv)
+         planes, hflip, little,
+         usePackBits, use_pb8, addamt, addamt0) = parse_argv(argv)
     except Exception as e:
         sys.stderr.write("%s: %s\n" % (argv[0], str(e)))
         sys.exit(1)
 
     im = Image.open(infilename)
+    im.load()
+    if len(im.getbands()) > 1:
+        print("%s: %s: image must be indexed (not mode %s)"
+              % (argv[0], infilename, im.mode), file=sys.stderr)
+        sys.exit(1)
+
+    # Subpalette shift
+    if addamt or addamt0:
+        px = bytearray(im.getdata())
+        for i in range(len(px)):
+            thispixel = px[i]
+            px[i] = thispixel + (addamt if thispixel else addamt0)
+        im.putdata(px)
 
     outdata = pilbmp2chr(im, tileWidth, tileHeight,
                          lambda im: formatTilePlanar(im, planes, hflip, little))
     outdata = b''.join(outdata)
+    im = None
     if use_pb8:
         from pb8 import pb8
         outdata = pb8(outdata)
+    elif usePackBits:
+        from packbits import PackBits
+        sz = len(outdata) % 0x10000
+        outdata = PackBits(outdata).flush().tobytes()
+        outdata = b''.join([chr(sz >> 8), chr(sz & 0xFF), outdata])
 
-    # Read input file
+    # Write output file
     outfp = None
     try:
         if outfilename != '-':
@@ -207,4 +221,5 @@ def main(argv=None):
 
 if __name__=='__main__':
     main()
-
+##    main(['pilbmp2nes.py', '../tilesets/char_pinocchio.png', 'char_pinocchio.chr'])
+##    main(['pilbmp2nes.py', '--packbits', '../tilesets/char_pinocchio.png', 'char_pinocchio.pkb'])
